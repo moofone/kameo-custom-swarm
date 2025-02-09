@@ -11,8 +11,17 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
+#libp2p = { version = "0.55.0", features = [
+#    "cbor", "dns", "kad", "mdns", "macros",
+#    "quic", "request-response", "rsa", "serde", "tokio"
+#]}
 kameo = { version = "0.14.0", features = ["remote"] }
 kameo_macros = "0.14.0"
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.37", features = ["full", "macros", "rt", "sync", "time"] }
 tokio-stream = "0.1"
+libp2p-request-response = "0.28.0"
+libp2p-swarm = "0.46.0"
+libp2p-core = "0.43.0"
+libp2p-kad = "0.47.0"
+libp2p-mdns = "0.47.0"

@@ -12,5 +12,8 @@ kameo = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
-
-libp2p = { version = "0.55.0", features = ["cbor", "dns", "kad", "mdns", "macros", "quic", "request-response", "rsa", "serde", "tokio"], optional = true }
+libp2p-request-response = { workspace = true }
+libp2p-swarm = { workspace = true }
+libp2p-core = { workspace = true }
+libp2p-kad = { workspace = true }
+libp2p-mdns = { workspace = true }
