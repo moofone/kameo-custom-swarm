@@ -9,8 +9,9 @@ use kameo::{
     },
 };
 use libp2p_core::{Multiaddr, PeerId};
+use libp2p_kad::store::MemoryStore;
 use libp2p_request_response::{OutboundRequestId, ProtocolSupport, ResponseChannel};
-use libp2p_swarm::{Swarm, SwarmEvent};
+use libp2p_swarm::{StreamProtocol, Swarm, SwarmEvent};
 //
 // use libp2p::{
 //     kad::{
@@ -37,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_tokio()
         .with_quic()
         .with_behaviour(|key| {
-            let kademlia = kad::Behaviour::new(
+            let kademlia = libp2p_kad::Behaviour::new(
                 key.public().to_peer_id(),
                 MemoryStore::new(key.public().to_peer_id()),
             );
