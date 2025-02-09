@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "test-member",  
+]
+
+resolver = "2"
+
+[package]
+name = "broken-custom-swarm"
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+kameo = { version = "0.14.0", features = ["remote"] }
+kameo_macros = "0.14.0"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.37", features = ["full", "macros", "rt", "sync", "time"] }
+tokio-stream = "0.1"

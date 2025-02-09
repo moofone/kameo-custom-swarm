@@ -1,0 +1,16 @@
+[package]
+name = "trading-shared"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "test-bin"
+path = "src/main.rs"
+
+[dependencies]
+kameo = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+
+libp2p = { version = "0.55.0", features = ["cbor", "dns", "kad", "mdns", "macros", "quic", "request-response", "rsa", "serde", "tokio"], optional = true }
