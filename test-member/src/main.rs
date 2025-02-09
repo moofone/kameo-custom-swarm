@@ -8,21 +8,12 @@ use kameo::{
         SwarmRequest, SwarmResponse,
     },
 };
-use libp2p_core::{Multiaddr, PeerId};
-use libp2p_kad::store::MemoryStore;
-use libp2p_request_response::{OutboundRequestId, ProtocolSupport, ResponseChannel};
-use libp2p_swarm::{StreamProtocol, Swarm, SwarmEvent};
-//
-// use libp2p::{
-//     kad::{
-//         self,
-//         store::{MemoryStore, RecordStore},
-//     },
-//     mdns,
-//     request_response::{self, OutboundRequestId, ProtocolSupport, ResponseChannel},
-//     swarm::{NetworkBehaviour, SwarmEvent},
-//     Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
-// };
+use libp2p::kad::store::MemoryStore;
+use libp2p::request_response::cbor::Behaviour;
+use libp2p::{kad, mdns, request_response, Multiaddr, StreamProtocol, Swarm, SwarmBuilder};
+use libp2p::request_response::{OutboundRequestId, ProtocolSupport, ResponseChannel};
+use libp2p::swarm::{NetworkBehaviour, SwarmEvent};
+use libp2p_identity::PeerId;
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt;
 
@@ -38,22 +29,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_tokio()
         .with_quic()
         .with_behaviour(|key| {
-            let kademlia = libp2p_kad::Behaviour::new(
+            let kademlia = kad::Behaviour::new(
                 key.public().to_peer_id(),
                 MemoryStore::new(key.public().to_peer_id()),
             );
             Ok(CustomBehaviour {
                 kademlia,
-                actor_request_response: libp2p_request_response::Behaviour::new(
+                actor_request_response: request_response::cbor::Behaviour::new(
                     [(StreamProtocol::new("/kameo/1"), ProtocolSupport::Full)],
-                    libp2p_request_response::Config::default(),
+                    request_response::Config::default(),
                 ),
-                custom_request_response: libp2p_request_response::cbor::Behaviour::new(
+                custom_request_response: request_response::cbor::Behaviour::new(
                     [(StreamProtocol::new("/custom/1"), ProtocolSupport::Full)],
-                    libp2p_request_response::Config::default(),
+                    request_response::Config::default(),
                 ),
-                mdns: libp2p_mdns::tokio::Behaviour::new(
-                    libp2p_mdns::Config::default(),
+                mdns: mdns::tokio::Behaviour::new(
+                    mdns::Config::default(),
                     key.public().to_peer_id(),
                 )?,
             })
@@ -74,6 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 }
+
 
 fn handle_event(
     swarm: &mut Swarm<CustomBehaviour>,
@@ -119,11 +111,11 @@ fn handle_event(
                 swarm,
                 ActorSwarmEvent::Behaviour(ActorSwarmBehaviourEvent::Mdns(event)),
             ),
-            CustomBehaviourEvent::CustomRequestResponse(libp2p_request_response::Event::Message {
+            CustomBehaviourEvent::CustomRequestResponse(request_response::Event::Message {
                 message,
                 ..
             }) => match message {
-                libp2p_request_response::Message::Request {
+                request_response::Message::Request {
                     request, channel, ..
                 } => match request {
                     CustomRequest::Greet { name } => {
@@ -139,7 +131,7 @@ fn handle_event(
                             .unwrap();
                     }
                 },
-                libp2p_request_response::Message::Response { response, .. } => match response {
+                request_response::Message::Response { response, .. } => match response {
                     CustomResponse::Greeted { msg } => {
                         println!("Greeted: {msg}");
                     }
@@ -163,10 +155,10 @@ enum CustomResponse {
 
 #[derive(NetworkBehaviour)]
 struct CustomBehaviour {
-    kademlia: libp2p_kad::Behaviour<libp2p_kad::store::MemoryStore>,
-    actor_request_response: libp2p_request_response::Behaviour<SwarmRequest, SwarmResponse>,
-    custom_request_response: libp2p_request_response::cbor::Behaviour<CustomRequest, CustomResponse>,
-    mdns: libp2p_mdns::tokio::Behaviour,
+    kademlia: kad::Behaviour<kad::store::MemoryStore>,
+    actor_request_response: request_response::cbor::Behaviour<SwarmRequest, SwarmResponse>,
+    custom_request_response: request_response::cbor::Behaviour<CustomRequest, CustomResponse>,
+    mdns: mdns::tokio::Behaviour,
 }
 
 impl SwarmBehaviour for CustomBehaviour {
@@ -180,7 +172,7 @@ impl SwarmBehaviour for CustomBehaviour {
         mailbox_timeout: Option<Duration>,
         reply_timeout: Option<Duration>,
         immediate: bool,
-    ) -> OutboundRequestId {
+    ) -> libp2p::request_response::OutboundRequestId {
         self.actor_request_response.send_request(
             peer,
             SwarmRequest::Ask {
@@ -204,7 +196,7 @@ impl SwarmBehaviour for CustomBehaviour {
         payload: Vec<u8>,
         mailbox_timeout: Option<Duration>,
         immediate: bool,
-    ) -> OutboundRequestId {
+    ) -> libp2p::request_response::OutboundRequestId {
         self.actor_request_response.send_request(
             peer,
             SwarmRequest::Tell {
@@ -224,7 +216,7 @@ impl SwarmBehaviour for CustomBehaviour {
         actor_remote_id: Cow<'static, str>,
         sibbling_id: ActorID,
         sibbling_remote_id: Cow<'static, str>,
-    ) -> OutboundRequestId {
+    ) -> libp2p::request_response::OutboundRequestId {
         self.actor_request_response.send_request(
             actor_id.peer_id().unwrap(),
             SwarmRequest::Link {
@@ -241,7 +233,7 @@ impl SwarmBehaviour for CustomBehaviour {
         actor_id: ActorID,
         actor_remote_id: Cow<'static, str>,
         sibbling_id: ActorID,
-    ) -> OutboundRequestId {
+    ) -> libp2p::request_response::OutboundRequestId {
         self.actor_request_response.send_request(
             actor_id.peer_id().unwrap(),
             SwarmRequest::Unlink {
@@ -258,7 +250,7 @@ impl SwarmBehaviour for CustomBehaviour {
         notified_actor_id: ActorID,
         notified_actor_remote_id: Cow<'static, str>,
         stop_reason: kameo::error::ActorStopReason,
-    ) -> OutboundRequestId {
+    ) -> libp2p::request_response::OutboundRequestId {
         self.actor_request_response.send_request(
             notified_actor_id.peer_id().unwrap(),
             SwarmRequest::SignalLinkDied {
@@ -315,31 +307,31 @@ impl SwarmBehaviour for CustomBehaviour {
             .send_response(channel, SwarmResponse::SignalLinkDied(result))
     }
 
-    fn kademlia_add_address(&mut self, peer: &PeerId, address: Multiaddr) -> libp2p_kad::RoutingUpdate {
+    fn kademlia_add_address(&mut self, peer: &PeerId, address: Multiaddr) -> kad::RoutingUpdate {
         self.kademlia.add_address(peer, address)
     }
 
-    fn kademlia_set_mode(&mut self, mode: Option<libp2p_kad::Mode>) {
+    fn kademlia_set_mode(&mut self, mode: Option<kad::Mode>) {
         self.kademlia.set_mode(mode)
     }
 
-    fn kademlia_get_record(&mut self, key: libp2p_kad::RecordKey) -> libp2p_kad::QueryId {
+    fn kademlia_get_record(&mut self, key: kad::RecordKey) -> kad::QueryId {
         self.kademlia.get_record(key)
     }
 
-    fn kademlia_get_record_local(&mut self, key: &libp2p_kad::RecordKey) -> Option<Cow<'_, libp2p_kad::Record>> {
+    fn kademlia_get_record_local(&mut self, key: &kad::RecordKey) -> Option<Cow<'_, kad::Record>> {
         self.kademlia.store_mut().get(key)
     }
 
     fn kademlia_put_record(
         &mut self,
-        record: libp2p_kad::Record,
-        quorum: libp2p_kad::Quorum,
-    ) -> Result<libp2p_kad::QueryId, libp2p_kad::store::Error> {
+        record: kad::Record,
+        quorum: kad::Quorum,
+    ) -> Result<kad::QueryId, kad::store::Error> {
         self.kademlia.put_record(record, quorum)
     }
 
-    fn kademlia_put_record_local(&mut self, record: libp2p_kad::Record) -> Result<(), libp2p_kad::store::Error> {
+    fn kademlia_put_record_local(&mut self, record: kad::Record) -> Result<(), kad::store::Error> {
         self.kademlia.store_mut().put(record)
     }
 }
